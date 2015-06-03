@@ -1,2 +1,2 @@
 <?xml version="1.0" encoding="utf-8"?>
-<merger version="3"><dataSet config="main"><source path="/Users/ahmadsalem/Documents/ElkaDrone/ComputerVisionPr/OpenCvPrjct/openCVLibrary300rc1/src/main/assets"/></dataSet><dataSet config="release"><source path="/Users/ahmadsalem/Documents/ElkaDrone/ComputerVisionPr/OpenCvPrjct/openCVLibrary300rc1/src/release/assets"/></dataSet></merger>
+<merger version="3"><dataSet config="main"><source path="C:\Users\Namara Moses\Desktop\CV-Research\OpenCvPrjct\openCVLibrary300rc1\src\main\assets"/></dataSet><dataSet config="release"><source path="C:\Users\Namara Moses\Desktop\CV-Research\OpenCvPrjct\openCVLibrary300rc1\src\release\assets"/></dataSet></merger>
