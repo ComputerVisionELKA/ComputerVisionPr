@@ -8,15 +8,25 @@ import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import org.opencv.android.BaseLoaderCallback;
 import org.opencv.android.CameraBridgeViewBase;
 import org.opencv.android.CameraBridgeViewBase.CvCameraViewListener2;
 import org.opencv.android.LoaderCallbackInterface;
 import org.opencv.android.OpenCVLoader;
+import org.opencv.core.Core;
 import org.opencv.core.CvType;
+import org.opencv.core.KeyPoint;
 import org.opencv.core.Mat;
+import org.opencv.core.MatOfKeyPoint;
+import org.opencv.core.Scalar;
+import org.opencv.features2d.FeatureDetector;
 import org.opencv.imgproc.Imgproc;
+
+import java.util.List;
+
+import static org.opencv.imgproc.Imgproc.circle;
 
 
 public class Main2Activity extends Activity implements CvCameraViewListener2 {
@@ -27,6 +37,7 @@ public class Main2Activity extends Activity implements CvCameraViewListener2 {
     private static final int       VIEW_MODE_GRAY     = 1;
     private static final int       VIEW_MODE_CANNY    = 2;
     private static final int       VIEW_MODE_FEATURES = 5;
+    private static final int       VIEW_MODE_FEATURES2 = 7;
 
     private int                    mViewMode;
     private Mat                    mRgba;
@@ -37,6 +48,10 @@ public class Main2Activity extends Activity implements CvCameraViewListener2 {
     private MenuItem               mItemPreviewGray;
     private MenuItem               mItemPreviewCanny;
     private MenuItem               mItemPreviewFeatures;
+    private MenuItem               mItemPreviewFeatures2;
+
+    private FeatureDetector orbFeatureDetector;
+    private MatOfKeyPoint keypoints;
 
     private BaseLoaderCallback  mLoaderCallback = new BaseLoaderCallback(this) {
         @Override
@@ -101,7 +116,8 @@ public class Main2Activity extends Activity implements CvCameraViewListener2 {
         mItemPreviewRGBA = menu.add("Preview RGBA");
         mItemPreviewGray = menu.add("Preview GRAY");
         mItemPreviewCanny = menu.add("Canny");
-        mItemPreviewFeatures = menu.add("Find features");
+        mItemPreviewFeatures = menu.add("Find features Native");
+        mItemPreviewFeatures2 = menu.add("Find features Java");
         return true;
     }
 
@@ -118,6 +134,9 @@ public class Main2Activity extends Activity implements CvCameraViewListener2 {
         } else if (item == mItemPreviewFeatures) {
             mViewMode = VIEW_MODE_FEATURES;
         }
+        else if (item == mItemPreviewFeatures2){
+            mViewMode = VIEW_MODE_FEATURES2;
+        }
 
         return true;
     }
@@ -126,6 +145,8 @@ public class Main2Activity extends Activity implements CvCameraViewListener2 {
         mRgba = new Mat(height, width, CvType.CV_8UC4);
         mIntermediateMat = new Mat(height, width, CvType.CV_8UC4);
         mGray = new Mat(height, width, CvType.CV_8UC1);
+        orbFeatureDetector = FeatureDetector.create(1);
+        keypoints = new MatOfKeyPoint();
     }
 
     public void onCameraViewStopped() {
@@ -148,15 +169,29 @@ public class Main2Activity extends Activity implements CvCameraViewListener2 {
                 break;
             case VIEW_MODE_CANNY:
                 // input frame has gray scale format
-                mRgba = inputFrame.rgba();
+                //mRgba = inputFrame.rgba();
                 Imgproc.Canny(inputFrame.gray(), mIntermediateMat, 80, 100);
-                Imgproc.cvtColor(mIntermediateMat, mRgba, Imgproc.COLOR_GRAY2RGBA, 4);
+                //Imgproc.cvtColor(mIntermediateMat, mRgba, Imgproc.COLOR_GRAY2RGBA, 4);
+                mRgba = mIntermediateMat;
                 break;
             case VIEW_MODE_FEATURES:
                 // input frame has RGBA format
                 mRgba = inputFrame.rgba();
                 mGray = inputFrame.gray();
                 FindFeatures(mGray.getNativeObjAddr(), mRgba.getNativeObjAddr());
+                break;
+            case VIEW_MODE_FEATURES2:
+                // input frame has RGBA format
+                mRgba = inputFrame.rgba();
+                mGray = inputFrame.gray();
+                //Not actually orb yet.
+
+                orbFeatureDetector.detect(mGray,keypoints);
+                List<KeyPoint> listOfPoints = keypoints.toList();
+                for (KeyPoint kp : listOfPoints) {
+                    circle(mRgba, kp.pt, 10, new Scalar(255, 0, 0, 255), 1);
+                }
+
                 break;
         }
 
