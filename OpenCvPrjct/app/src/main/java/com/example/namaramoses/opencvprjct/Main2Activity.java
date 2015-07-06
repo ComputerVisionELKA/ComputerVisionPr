@@ -1,32 +1,34 @@
 package com.example.namaramoses.opencvprjct;
 
 import android.app.Activity;
-import android.graphics.Camera;
-import android.support.v7.app.ActionBarActivity;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
-import android.widget.TextView;
-import android.widget.Toast;
 
 import org.opencv.android.BaseLoaderCallback;
 import org.opencv.android.CameraBridgeViewBase;
 import org.opencv.android.CameraBridgeViewBase.CvCameraViewListener2;
 import org.opencv.android.LoaderCallbackInterface;
-import org.opencv.android.OpenCVLoader;
-import org.opencv.core.Core;
 import org.opencv.core.CvType;
 import org.opencv.core.KeyPoint;
 import org.opencv.core.Mat;
+import org.opencv.core.MatOfByte;
+import org.opencv.core.MatOfDMatch;
 import org.opencv.core.MatOfKeyPoint;
 import org.opencv.core.Scalar;
+import org.opencv.core.Size;
+import org.opencv.features2d.DescriptorExtractor;
+import org.opencv.features2d.DescriptorMatcher;
 import org.opencv.features2d.FeatureDetector;
+import org.opencv.features2d.Features2d;
 import org.opencv.imgproc.Imgproc;
 
 import java.util.List;
 
 import static org.opencv.imgproc.Imgproc.circle;
+import static org.opencv.imgproc.Imgproc.cvtColor;
+import static org.opencv.imgproc.Imgproc.resize;
 
 
 public class Main2Activity extends Activity implements CvCameraViewListener2 {
@@ -37,21 +39,39 @@ public class Main2Activity extends Activity implements CvCameraViewListener2 {
     private static final int       VIEW_MODE_GRAY     = 1;
     private static final int       VIEW_MODE_CANNY    = 2;
     private static final int       VIEW_MODE_FEATURES = 5;
-    private static final int       VIEW_MODE_FEATURES2 = 7;
+    private static final int       VIEW_MODE_FEATURESJAVA = 7;
+    private static final int       VIEW_MODE_ORB = 9;
+
+
 
     private int                    mViewMode;
     private Mat                    mRgba;
     private Mat                    mIntermediateMat;
     private Mat                    mGray;
+    private Mat                    mInitial;
+
+    private Size                    screenSize;
 
     private MenuItem               mItemPreviewRGBA;
     private MenuItem               mItemPreviewGray;
     private MenuItem               mItemPreviewCanny;
     private MenuItem               mItemPreviewFeatures;
     private MenuItem               mItemPreviewFeatures2;
+    private MenuItem               mItemPreviewOrb;
 
+    private int firstFrame;
+    private int frameCount;
+    private FeatureDetector javaFeatureDetector;
+    private MatOfKeyPoint keypoints1;
+    private MatOfKeyPoint keypoints2;
+    private Mat descriptors1;
+    private Mat descriptors2;
     private FeatureDetector orbFeatureDetector;
-    private MatOfKeyPoint keypoints;
+    private DescriptorExtractor descriptor;
+    private DescriptorMatcher matcher;
+    Mat output;
+    Mat output2;
+    private MatOfDMatch matches;
 
     private BaseLoaderCallback  mLoaderCallback = new BaseLoaderCallback(this) {
         @Override
@@ -79,7 +99,6 @@ public class Main2Activity extends Activity implements CvCameraViewListener2 {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main2);
-
         mOpenCvCameraView = (CameraBridgeViewBase) findViewById(R.id.surface_view);
         mOpenCvCameraView.setCvCameraViewListener(this);
 
@@ -114,16 +133,19 @@ public class Main2Activity extends Activity implements CvCameraViewListener2 {
     public boolean onCreateOptionsMenu(Menu menu) {
         Log.i(TAG, "called onCreateOptionsMenu");
         mItemPreviewRGBA = menu.add("Preview RGBA");
-        mItemPreviewGray = menu.add("Preview GRAY");
+        //mItemPreviewGray = menu.add("Preview GRAY");
         mItemPreviewCanny = menu.add("Canny");
-        mItemPreviewFeatures = menu.add("Find features Native");
-        mItemPreviewFeatures2 = menu.add("Find features Java");
+        mItemPreviewFeatures = menu.add("FFNative");
+        mItemPreviewFeatures2 = menu.add("FFJava");
+        mItemPreviewOrb = menu.add("ORB");
         return true;
     }
 
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         Log.i(TAG, "called onOptionsItemSelected; selected item: " + item);
+        firstFrame=0;
+        frameCount=3;
 
         if (item == mItemPreviewRGBA) {
             mViewMode = VIEW_MODE_RGBA;
@@ -135,7 +157,10 @@ public class Main2Activity extends Activity implements CvCameraViewListener2 {
             mViewMode = VIEW_MODE_FEATURES;
         }
         else if (item == mItemPreviewFeatures2){
-            mViewMode = VIEW_MODE_FEATURES2;
+            mViewMode = VIEW_MODE_FEATURESJAVA;
+        }
+        else if (item == mItemPreviewOrb){
+            mViewMode = VIEW_MODE_ORB;
         }
 
         return true;
@@ -145,8 +170,19 @@ public class Main2Activity extends Activity implements CvCameraViewListener2 {
         mRgba = new Mat(height, width, CvType.CV_8UC4);
         mIntermediateMat = new Mat(height, width, CvType.CV_8UC4);
         mGray = new Mat(height, width, CvType.CV_8UC1);
-        orbFeatureDetector = FeatureDetector.create(1);
-        keypoints = new MatOfKeyPoint();
+        javaFeatureDetector = FeatureDetector.create(1);
+
+        keypoints1 = new MatOfKeyPoint();
+        keypoints2 = new MatOfKeyPoint();
+        descriptors1 = new Mat();
+        descriptors2 = new Mat();
+        orbFeatureDetector = FeatureDetector.create(FeatureDetector.ORB);
+
+        screenSize = new Size(width,height);
+
+        descriptor = DescriptorExtractor.create(DescriptorExtractor.ORB);
+
+        matcher = DescriptorMatcher.create(DescriptorMatcher.BRUTEFORCE_HAMMING);
     }
 
     public void onCameraViewStopped() {
@@ -161,7 +197,7 @@ public class Main2Activity extends Activity implements CvCameraViewListener2 {
         switch (viewMode) {
             case VIEW_MODE_GRAY:
                 // input frame has gray scale format
-                Imgproc.cvtColor(inputFrame.gray(), mRgba, Imgproc.COLOR_GRAY2RGBA, 4);
+                cvtColor(inputFrame.gray(), mRgba, Imgproc.COLOR_GRAY2RGBA, 4);
                 break;
             case VIEW_MODE_RGBA:
                 // input frame has RBGA format
@@ -180,17 +216,58 @@ public class Main2Activity extends Activity implements CvCameraViewListener2 {
                 mGray = inputFrame.gray();
                 FindFeatures(mGray.getNativeObjAddr(), mRgba.getNativeObjAddr());
                 break;
-            case VIEW_MODE_FEATURES2:
+            case VIEW_MODE_FEATURESJAVA:
                 // input frame has RGBA format
                 mRgba = inputFrame.rgba();
                 mGray = inputFrame.gray();
-                //Not actually orb yet.
 
-                orbFeatureDetector.detect(mGray,keypoints);
-                List<KeyPoint> listOfPoints = keypoints.toList();
+                javaFeatureDetector.detect(mGray, keypoints1);
+                List<KeyPoint> listOfPoints = keypoints1.toList();
                 for (KeyPoint kp : listOfPoints) {
                     circle(mRgba, kp.pt, 10, new Scalar(255, 0, 0, 255), 1);
                 }
+
+                break;
+            case VIEW_MODE_ORB:
+                mRgba = inputFrame.rgba();
+                mGray = inputFrame.gray();
+                if(firstFrame==0) {
+                    firstFrame=1;
+                    mInitial = inputFrame.gray().clone();
+                    orbFeatureDetector.detect(mInitial, keypoints1);
+                    descriptor.compute(mInitial, keypoints1, descriptors1);
+                    mRgba = mInitial;
+                    output = new Mat();
+                    output2 = new Mat();
+                    keypoints2 = new MatOfKeyPoint();
+                    matches = new MatOfDMatch();
+                }
+                else{
+                    MatOfByte mask = new MatOfByte();
+
+                    Scalar RED = new Scalar(255,0,0);
+                    Scalar GREEN = new Scalar(0,255,0);
+
+                    if(frameCount==3) {
+                        orbFeatureDetector.detect(mGray, keypoints2);
+                        descriptor.compute(mGray, keypoints2, descriptors2);
+                        matcher.match(descriptors1, descriptors2, matches);
+                        frameCount=0;
+                    }
+                    frameCount++;
+                    //Flan Matching
+
+                    Features2d.drawMatches(mInitial,keypoints1,mGray,keypoints2,matches,output,
+                            GREEN,RED,mask, Features2d.NOT_DRAW_SINGLE_POINTS);
+                    resize(output, output2, screenSize);
+
+                    Log.i(TAG, "mInitaialDims: " + mInitial.width() + "," + mInitial.height());
+                    Log.i(TAG, "mGrayDims: " + mGray.width() +","+ mGray.height());
+                    Log.i(TAG,"outputDims: " + output.width() +","+ output.height());
+                    mRgba = output2;
+//
+                }
+
 
                 break;
         }
