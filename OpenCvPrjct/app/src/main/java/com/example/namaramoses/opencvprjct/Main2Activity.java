@@ -145,7 +145,7 @@ public class Main2Activity extends Activity implements CvCameraViewListener2 {
     public boolean onOptionsItemSelected(MenuItem item) {
         Log.i(TAG, "called onOptionsItemSelected; selected item: " + item);
         firstFrame=0;
-        frameCount=3;
+        frameCount=0; // 3
 
         if (item == mItemPreviewRGBA) {
             mViewMode = VIEW_MODE_RGBA;
@@ -205,9 +205,9 @@ public class Main2Activity extends Activity implements CvCameraViewListener2 {
                 break;
             case VIEW_MODE_CANNY:
                 // input frame has gray scale format
-                //mRgba = inputFrame.rgba();
+                // mRgba = inputFrame.rgba();
                 Imgproc.Canny(inputFrame.gray(), mIntermediateMat, 80, 100);
-                //Imgproc.cvtColor(mIntermediateMat, mRgba, Imgproc.COLOR_GRAY2RGBA, 4);
+                // Imgproc.cvtColor(mIntermediateMat, mRgba, Imgproc.COLOR_GRAY2RGBA, 4);
                 mRgba = mIntermediateMat;
                 break;
             case VIEW_MODE_FEATURES:
@@ -248,12 +248,27 @@ public class Main2Activity extends Activity implements CvCameraViewListener2 {
                     Scalar RED = new Scalar(255,0,0);
                     Scalar GREEN = new Scalar(0,255,0);
 
+//                    if(frameCount==3) {
+//                        orbFeatureDetector.detect(mGray, keypoints2);
+//                        descriptor.compute(mGray, keypoints2, descriptors2);
+//                        matcher.match(descriptors1, descriptors2, matches);
+//                        frameCount=0;
+//                    }
+
+
                     if(frameCount==3) {
-                        orbFeatureDetector.detect(mGray, keypoints2);
-                        descriptor.compute(mGray, keypoints2, descriptors2);
-                        matcher.match(descriptors1, descriptors2, matches);
-                        frameCount=0;
+                        new Thread(new Runnable() {
+                            public void run() {
+                            orbFeatureDetector.detect(mGray, keypoints2);
+                            descriptor.compute(mGray, keypoints2, descriptors2);
+                            matcher.match(descriptors1, descriptors2, matches);
+                            frameCount=0;
+                            }
+                        }).start();
                     }
+
+
+
                     frameCount++;
                     //Flan Matching
 
