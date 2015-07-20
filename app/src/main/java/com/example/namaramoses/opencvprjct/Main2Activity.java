@@ -317,7 +317,7 @@ public class Main2Activity extends Activity implements CvCameraViewListener2 {
                 writer.close();
                 orbFeatureDetector.read(fileName);
                 List<KeyPoint> listOfPoints = keypoints.toList();
-
+//commit
                 if (false) {
                     Log.w(TAG, "Number of circles found: " + listOfPoints.size());
                 }
