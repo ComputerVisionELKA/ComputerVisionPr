@@ -64,6 +64,7 @@ public class Main2Activity extends Activity implements CvCameraViewListener2 {
     private FeatureDetector javaFeatureDetector;
     private MatOfKeyPoint keypoints1;
     private MatOfKeyPoint keypoints2;
+    private MatOfKeyPoint keyPointsUse;
     private Mat descriptors1;
     private Mat descriptors2;
     private FeatureDetector orbFeatureDetector;
@@ -72,6 +73,12 @@ public class Main2Activity extends Activity implements CvCameraViewListener2 {
     Mat output;
     Mat output2;
     private MatOfDMatch matches;
+    private MatOfDMatch matchesUse;
+    TemplateMatcher templateMatcher;
+    double startTime, endTime;
+
+
+    boolean readyForDisplay;
 
     private BaseLoaderCallback  mLoaderCallback = new BaseLoaderCallback(this) {
         @Override
@@ -145,7 +152,9 @@ public class Main2Activity extends Activity implements CvCameraViewListener2 {
     public boolean onOptionsItemSelected(MenuItem item) {
         Log.i(TAG, "called onOptionsItemSelected; selected item: " + item);
         firstFrame=0;
-        frameCount=0; // 3
+        frameCount=3; // 3
+        templateMatcher = new TemplateMatcher(15,5);
+        readyForDisplay = false;
 
         if (item == mItemPreviewRGBA) {
             mViewMode = VIEW_MODE_RGBA;
@@ -177,6 +186,7 @@ public class Main2Activity extends Activity implements CvCameraViewListener2 {
         descriptors1 = new Mat();
         descriptors2 = new Mat();
         orbFeatureDetector = FeatureDetector.create(FeatureDetector.ORB);
+        //orbFeatureDetector = FeatureDetector.create(1);
 
         screenSize = new Size(width,height);
 
@@ -231,61 +241,70 @@ public class Main2Activity extends Activity implements CvCameraViewListener2 {
             case VIEW_MODE_ORB:
                 mRgba = inputFrame.rgba();
                 mGray = inputFrame.gray();
-                if(firstFrame==0) {
-                    firstFrame=1;
-                    mInitial = inputFrame.gray().clone();
-                    orbFeatureDetector.detect(mInitial, keypoints1);
-                    descriptor.compute(mInitial, keypoints1, descriptors1);
-                    mRgba = mInitial;
-                    output = new Mat();
-                    output2 = new Mat();
-                    keypoints2 = new MatOfKeyPoint();
-                    matches = new MatOfDMatch();
-                }
-                else{
-                    MatOfByte mask = new MatOfByte();
-
-                    Scalar RED = new Scalar(255,0,0);
-                    Scalar GREEN = new Scalar(0,255,0);
-
-//                    if(frameCount==3) {
-//                        orbFeatureDetector.detect(mGray, keypoints2);
-//                        descriptor.compute(mGray, keypoints2, descriptors2);
-//                        matcher.match(descriptors1, descriptors2, matches);
-//                        frameCount=0;
-//                    }
-
-
-                    if(frameCount==3) {
-                        new Thread(new Runnable() {
-                            public void run() {
-                            orbFeatureDetector.detect(mGray, keypoints2);
-                            descriptor.compute(mGray, keypoints2, descriptors2);
-                            matcher.match(descriptors1, descriptors2, matches);
-                            frameCount=0;
-                            }
-                        }).start();
-                    }
-
-
-
-                    frameCount++;
-                    //Flan Matching
-
-                    Features2d.drawMatches(mInitial,keypoints1,mGray,keypoints2,matches,output,
-                            GREEN,RED,mask, Features2d.NOT_DRAW_SINGLE_POINTS);
-                    resize(output, output2, screenSize);
-
-                    Log.i(TAG, "mInitaialDims: " + mInitial.width() + "," + mInitial.height());
-                    Log.i(TAG, "mGrayDims: " + mGray.width() +","+ mGray.height());
-                    Log.i(TAG,"outputDims: " + output.width() +","+ output.height());
-                    mRgba = output2;
+//                if(firstFrame==0) {
+//                    firstFrame=1;
+//                    mInitial = inputFrame.gray().clone();
+//                    orbFeatureDetector.detect(mInitial, keypoints1);
+//                    descriptor.compute(mInitial, keypoints1, descriptors1);
+//                    mRgba = mInitial;
+//                    output = new Mat();
+//                    output2 = new Mat();
+//                    keypoints2 = new MatOfKeyPoint();
+//                    keyPointsUse = new MatOfKeyPoint();
+//                    matches = new MatOfDMatch();
+//                    matchesUse = new MatOfDMatch();
+//                    startTime = System.nanoTime();
+//                }
+//                else{
+//                    MatOfByte mask = new MatOfByte();
 //
-                }
+//                    Scalar RED = new Scalar(255,0,0);
+//                    Scalar GREEN = new Scalar(0,255,0);
+                   // if(frameCount==3) {
+                   // orbFeatureDetector.detect(mGray, keypoints2);
+                       // descriptor.compute(mGray, keypoints2, descriptors2);
+                        //matcher.match(descriptors1, descriptors2, matches);
+                     //   frameCount=0;
+                 //   }
+//                        new Thread(new Runnable() {
+//                            public void run() {
+//                                Mat mGray2 = mGray.clone();
+//                                orbFeatureDetector.detect(mGray2, keypoints2);
+//                                descriptor.compute(mGray2, keypoints2, descriptors2);
+//                                matcher.match(descriptors1, descriptors2, matches);
+//
+//                                synchronized (matchesUse) {
+//                                    matchesUse = matches;
+//                                    keyPointsUse = keypoints2;
+//                                }
+//
+//                            }
+//                        }).start();
+//                        frameCount=0;
+                   // frameCount++;
+                    //Flan Matching
+                  //  synchronized (matchesUse) {
+
+                     //   Features2d.drawMatches(mInitial, keypoints1, mGray, keypoints2, matches, output,
+                     //           GREEN, RED, mask, Features2d.NOT_DRAW_SINGLE_POINTS);
+                  //  }
+                   // resize(output, output2, screenSize);
+                    templateMatcher.setCurrentFrameAndUpdate(mRgba);
+//                    endTime = System.nanoTime();
+//                    double total = (endTime - startTime)/1000000000.0;
+  //                  Log.i(TAG, "Time: " + total);
+//                    startTime = endTime;
+
+//                    Log.i(TAG, "mInitaialDims: " + mInitial.width() + "," + mInitial.height());
+//                    Log.i(TAG, "mGrayDims: " + mGray.width() +","+ mGray.height());
+//                    Log.i(TAG,"outputDims: " + output.width() +","+ output.height());
+                    //mRgba = output2;
+
+
 
 
                 break;
-        }
+       }
 
         return mRgba;
     }
