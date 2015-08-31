@@ -5,6 +5,7 @@ import android.util.Log;
 import org.opencv.core.KeyPoint;
 import org.opencv.core.Mat;
 import org.opencv.core.MatOfKeyPoint;
+import org.opencv.core.Point;
 import org.opencv.features2d.DescriptorExtractor;
 import org.opencv.features2d.FeatureDetector;
 
@@ -59,6 +60,50 @@ public class TemplateMatcher {
             fastFeatureDetector.detect(currFrame,currKeyPts);
             CurrKeyPtsArr =  new ArrayList<KeyPoint>(currKeyPts.toList());
 
+            for(KeyPoint keypt : trimmedCurrKeyPtsArr){
+                //Crop frame matrix around keypoint.pt+maxWidth, find features and descriptors in this area
+                //Match with this keypt. If found, then foundThisUpdate++, if not, then find a new random point
+
+
+                //region cropMatrix
+                // Used for cropping the matrix around the specific point with a pixel distance of maxWidth
+                Point interestPt = keypt.pt;
+                int minX=0,maxX=0,minY=0,maxY=0;
+
+                if(interestPt.x-maxWidth>=0){
+                    minX = (int)interestPt.x - maxWidth;
+                }
+                else{
+                    minX=0;
+                }
+
+                if(interestPt.x+maxWidth<=currFrame.width()){
+                    maxX = (int)interestPt.x + maxWidth;
+                }
+                else{
+                    maxX=currFrame.width();
+                }
+
+                if(interestPt.y-maxWidth>=0){
+                    minY = (int)interestPt.y - maxWidth;
+                }
+                else{
+                    minY=0;
+                }
+
+                if(interestPt.y+maxWidth<=currFrame.height()){
+                    maxY = (int)interestPt.y + maxWidth;
+                }
+                else{
+                    maxY=currFrame.height();
+                }
+
+                Mat interestMat = currFrame.submat(minX,maxX,minY,maxY); // The cropped matrix around the keypoint
+                //endregion
+
+
+            }
+
         }else{ // First Frame
             fastFeatureDetector.detect(currFrame,currKeyPts);
             CurrKeyPtsArr =  new ArrayList<KeyPoint>(currKeyPts.toList());
@@ -70,7 +115,6 @@ public class TemplateMatcher {
             }
             trimmedCurrKeyPts.fromList(trimmedCurrKeyPtsArr);
             descriptorExtractor.compute(currFrame,trimmedCurrKeyPts,currDescriptors);
-
 
         }
 
