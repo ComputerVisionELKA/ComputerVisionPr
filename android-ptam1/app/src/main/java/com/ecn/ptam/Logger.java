@@ -51,7 +51,6 @@ public class Logger {
 			writer = new FileWriter(file);
 
 		} catch (IOException e) {
-			Log.i("Empty","File is deleted");
 			e.printStackTrace();
 		}
 		return writer;
