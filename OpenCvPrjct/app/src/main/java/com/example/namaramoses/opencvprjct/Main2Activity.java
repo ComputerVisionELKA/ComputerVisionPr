@@ -59,7 +59,7 @@ public class Main2Activity extends Activity implements CvCameraViewListener2 {
     private MenuItem               mItemPreviewFeatures2;
     private MenuItem               mItemPreviewOrb;
 
-    private int firstFrame;
+
     private int frameCount;
     private FeatureDetector javaFeatureDetector;
     private MatOfKeyPoint keypoints1;
@@ -151,7 +151,7 @@ public class Main2Activity extends Activity implements CvCameraViewListener2 {
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         Log.i(TAG, "called onOptionsItemSelected; selected item: " + item);
-        firstFrame=0;
+
         frameCount=3; // 3
         templateMatcher = new TemplateMatcher(15,5);
         readyForDisplay = false;
