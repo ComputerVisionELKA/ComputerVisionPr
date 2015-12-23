@@ -7,6 +7,7 @@ import org.opencv.core.Point;
 import org.opencv.features2d.FeatureDetector;
 
 import java.util.ArrayList;
+import java.util.Random;
 
 /**
  * Created by ahmadsalem on 10/26/15.
@@ -32,6 +33,7 @@ public class PositionTracker {
 
     /// Auxilliary
     private FeatureDetector orbFeatureDetector; // Orb 5
+    private Random random;
 
 
     public PositionTracker(int corner_size, int num_track, int sweep_size, Mat firstImg){
@@ -43,6 +45,9 @@ public class PositionTracker {
         // init arrays
         pts_xy = new Point[num_track];
         pts_img = new Mat[num_track];
+
+        //Aux
+        random = new Random();
 
         init(firstImg);
 
@@ -61,11 +66,21 @@ public class PositionTracker {
 
         for(int i =0;i<num_track;i++ ){
             KeyPoint foiToStore = getRandomPoint(detectedKeyPtsArr);
+            pts_xy[i] = foiToStore.pt;
+            pts_img[i] = getImgAroundPt(firstImg,foiToStore.pt,corner_size);
         }
     }
+
     //TODO:IMPLEMENT
-    private KeyPoint getRandomPoint(KeyPoint[] detected){
+    // Returns a (size dims) Mat around cordinates pt of Mat img
+    private Mat getImgAroundPt(Mat img, Point pt, int dims ){
+
         return null;
+    }
+
+    private KeyPoint getRandomPoint(KeyPoint[] detected){
+        int randIdx = random.nextInt(detected.length - 0 + 1) + 0;
+        return detected[randIdx];
     }
 
     // Takes the new frame and does all logic
