@@ -4,10 +4,14 @@ import org.opencv.core.KeyPoint;
 import org.opencv.core.Mat;
 import org.opencv.core.MatOfKeyPoint;
 import org.opencv.core.Point;
+import org.opencv.core.Rect;
+import org.opencv.core.Scalar;
 import org.opencv.features2d.FeatureDetector;
 
 import java.util.ArrayList;
 import java.util.Random;
+
+import static org.opencv.imgproc.Imgproc.rectangle;
 
 /**
  * Created by ahmadsalem on 10/26/15.
@@ -29,6 +33,7 @@ public class PositionTracker {
     private Mat[] pts_img;
     // Stores the most recent frames's Matrix
     private Mat currentFrame;
+    public Mat firstImg;
 
 
     /// Auxilliary
@@ -41,6 +46,7 @@ public class PositionTracker {
         this.corner_size = corner_size;
         this.num_track = num_track;
         this.sweep_size = sweep_size;
+        this.firstImg = firstImg;
 
         // init arrays
         pts_xy = new Point[num_track];
@@ -56,8 +62,10 @@ public class PositionTracker {
 
     // Initializes for the first frame
     private void init(Mat firstImg){
-        MatOfKeyPoint detected = null;
+        MatOfKeyPoint detected = new MatOfKeyPoint();
         KeyPoint[] detectedKeyPtsArr;
+        Point[] drawmin = new Point[num_track];
+        Point[] drawmax = new Point[num_track];
 
         orbFeatureDetector = FeatureDetector.create(5);
         orbFeatureDetector.detect(firstImg,detected);
@@ -66,16 +74,34 @@ public class PositionTracker {
 
         for(int i =0;i<num_track;i++ ){
             KeyPoint foiToStore = getRandomPoint(detectedKeyPtsArr);
+            while(!inBounds(foiToStore.pt, firstImg)){
+                foiToStore = getRandomPoint(detectedKeyPtsArr);
+            }
+
             pts_xy[i] = foiToStore.pt;
-            pts_img[i] = getImgAroundPt(firstImg,foiToStore.pt,corner_size);
+            // Gets the mat of the point (Squares only and no bounds check)
+            pts_img[i] = firstImg.submat(new Rect(new Point(foiToStore.pt.x - corner_size / 2, foiToStore.pt.y - corner_size / 2),
+                    new Point(foiToStore.pt.x + corner_size / 2, foiToStore.pt.y + corner_size / 2)));
+
+            // DBG draws intial point's rectangles
+           drawmin[i] = new Point(foiToStore.pt.x - corner_size / 2, foiToStore.pt.y - corner_size / 2);
+            drawmax[i] = new Point(foiToStore.pt.x + corner_size / 2, foiToStore.pt.y + corner_size / 2);
+
+        }
+        // DBG draws intial point's rectangles
+        for(int i = 0;i<num_track;i++) {
+            rectangle(firstImg, drawmin[i], drawmax[i], new Scalar(255, 51, 204), 3);
         }
     }
 
-    //TODO:IMPLEMENT
-    // Returns a (size dims) Mat around cordinates pt of Mat img
-    private Mat getImgAroundPt(Mat img, Point pt, int dims ){
-
-        return null;
+    // Determines if the image of the point is completely inside of the parent (full) matrix
+    private boolean inBounds(Point point, Mat img){
+        if (point.x - (corner_size/2)<0 || point.x + (corner_size/2) > img.cols() || point.y - (corner_size/2) < 0 ||point.x+(corner_size/2)>img.rows() ) {
+            return false;
+        }
+        else {
+            return true;
+        }
     }
 
     private KeyPoint getRandomPoint(KeyPoint[] detected){
