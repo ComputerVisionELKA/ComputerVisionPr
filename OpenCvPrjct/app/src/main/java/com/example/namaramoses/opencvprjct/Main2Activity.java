@@ -215,7 +215,7 @@ public class Main2Activity extends Activity implements CvCameraViewListener2 {
                     frameCount++;
                 }
                 else{
-                    mRgba = positionTracker.firstImg;
+                    positionTracker.update(mRgba);
                     frameCount++;
                 }
 //                if(firstFrame==0) {

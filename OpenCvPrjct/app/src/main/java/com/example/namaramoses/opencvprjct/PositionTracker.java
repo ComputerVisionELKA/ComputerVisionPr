@@ -1,5 +1,9 @@
 package com.example.namaramoses.opencvprjct;
 
+import android.util.Log;
+
+import org.opencv.core.Core;
+import org.opencv.core.CvType;
 import org.opencv.core.KeyPoint;
 import org.opencv.core.Mat;
 import org.opencv.core.MatOfKeyPoint;
@@ -7,6 +11,7 @@ import org.opencv.core.Point;
 import org.opencv.core.Rect;
 import org.opencv.core.Scalar;
 import org.opencv.features2d.FeatureDetector;
+import org.opencv.imgproc.Imgproc;
 
 import java.util.ArrayList;
 import java.util.Random;
@@ -39,6 +44,8 @@ public class PositionTracker {
     /// Auxilliary
     private FeatureDetector orbFeatureDetector; // Orb 5
     private Random random;
+    private static final String    TAG = "OCVSample::Activity";
+    private int match_method = Imgproc.TM_CCOEFF_NORMED;
 
 
     public PositionTracker(int corner_size, int num_track, int sweep_size, Mat firstImg){
@@ -112,16 +119,91 @@ public class PositionTracker {
     // Takes the new frame and does all logic
    public void update(Mat frame){
        this.currentFrame = frame;
+       Point[] drawmin = new Point[num_track];
+       Point[] drawmax = new Point[num_track];
+
 
        // Main loop
        for(int i = 0; i<num_track;i++){
            // Extract data from previous frame
            Point foi_xy = pts_xy[i];
-           Mat foi_img = pts_img[i];
+           Mat foi_img = pts_img[i]; //(templ)
 
+
+           drawmin[i] = getSearchRgnRectMin(foi_xy, frame);
+           drawmax[i] = getSearchRgnRectMax(foi_xy, frame);
+
+           Rect searchRgnRect = new Rect(drawmin[i],drawmax[i]);
+           Mat searchRgn = frame.submat(searchRgnRect); // This is the search region matrix (img)
+           // Now we need to search for foi_img in searchRgn using template matcher
+           int result_cols = searchRgn.cols() - foi_img.cols() + 1;
+           int result_rows = searchRgn.rows() - foi_img.rows() + 1;
+           Mat result = new Mat(result_rows,result_cols, CvType.CV_32FC1);
+
+           Imgproc.matchTemplate(searchRgn, foi_img, result, match_method);
+          // Core.normalize(result,result,0,1,Core.NORM_MINMAX,-1,new Mat());
+           Core.MinMaxLocResult mmr = Core.minMaxLoc(result);
+
+           Point matchLoc;
+           if (match_method == Imgproc.TM_SQDIFF
+                   || match_method == Imgproc.TM_SQDIFF_NORMED) {
+               matchLoc = mmr.minLoc;
+               Log.i(TAG, "minVal " + mmr.minVal);
+           } else {
+               matchLoc = mmr.maxLoc;
+               Log.i(TAG, "maxVal [" +i+"] "+ mmr.maxVal);
+               Log.i(TAG, "minVal [" +i+"] "+ mmr.minVal);
+           }
+
+
+       }
+        //DBG
+       for(int i = 0;i<num_track;i++) {
+           rectangle(firstImg, drawmin[i], drawmax[i], new Scalar(237, 167, 55), 3);
        }
 
    }
+    // Gets the minPoint (dimensions) of which to submatrix. This is a scaled rectangle of max search-region dims
+    private Point getSearchRgnRectMin(Point pt, Mat img){
+        double minx=0,miny=0;
+
+        if(pt.x - sweep_size >=0){
+            minx = (int)pt.x-sweep_size;
+        }
+        else{
+            minx = 0;
+        }
+
+        if(pt.y-sweep_size>=0){
+            miny = (int)pt.y-sweep_size;
+        }
+        else{
+            miny=0;
+        }
+
+
+        return new Point(minx,miny);
+    }
+    // Gets the maxPoint (dimensions) of which to submatrix. This is a scaled rectangle of max search-region dims
+    private Point getSearchRgnRectMax(Point pt, Mat img){
+        double minx=0,maxx=0,miny=0,maxy=0;
+
+        if(pt.x + sweep_size <= img.cols()){
+            maxx = (int)pt.x+sweep_size;
+        }
+        else{
+            maxx = pt.x+img.cols()-1;
+        }
+
+        if(pt.y+sweep_size<=img.rows()){
+            maxy=(int)pt.y+sweep_size;
+        }
+        else{
+            maxy=img.rows()-1;
+        }
+
+        return new Point(maxx,maxy);
+    }
 
 
 
