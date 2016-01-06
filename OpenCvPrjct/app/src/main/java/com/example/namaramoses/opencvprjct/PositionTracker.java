@@ -112,7 +112,9 @@ public class PositionTracker {
     }
 
     private KeyPoint getRandomPoint(KeyPoint[] detected){
-        int randIdx = random.nextInt(detected.length - 0 + 1) + 0;
+        int randIdx = random.nextInt(detected.length - 1 + 1) + 0;
+//        Log.i(TAG, "randIdx " + randIdx);
+//        Log.i(TAG, "detected arr len " + detected.length);
         return detected[randIdx];
     }
 
@@ -121,6 +123,7 @@ public class PositionTracker {
        this.currentFrame = frame;
        Point[] drawmin = new Point[num_track];
        Point[] drawmax = new Point[num_track];
+       Point[] matchLocs = new Point[num_track];
 
 
        // Main loop
@@ -144,22 +147,25 @@ public class PositionTracker {
           // Core.normalize(result,result,0,1,Core.NORM_MINMAX,-1,new Mat());
            Core.MinMaxLocResult mmr = Core.minMaxLoc(result);
 
-           Point matchLoc;
+           Point matchLocTopLeft;
+
            if (match_method == Imgproc.TM_SQDIFF
                    || match_method == Imgproc.TM_SQDIFF_NORMED) {
-               matchLoc = mmr.minLoc;
+               matchLocTopLeft = mmr.minLoc;
                Log.i(TAG, "minVal " + mmr.minVal);
            } else {
-               matchLoc = mmr.maxLoc;
+               matchLocTopLeft = mmr.maxLoc;
+               matchLocs[i] = mmr.maxLoc;
                Log.i(TAG, "maxVal [" +i+"] "+ mmr.maxVal);
                Log.i(TAG, "minVal [" +i+"] "+ mmr.minVal);
            }
 
-
        }
         //DBG
        for(int i = 0;i<num_track;i++) {
-           rectangle(firstImg, drawmin[i], drawmax[i], new Scalar(237, 167, 55), 3);
+           rectangle(frame, drawmin[i], drawmax[i], new Scalar(237, 167, 55), 3);
+           rectangle(frame, new Point(drawmin[i].x+matchLocs[i].x,drawmin[i].y+matchLocs[i].y),
+                   new Point(drawmin[i].x+matchLocs[i].x+sweep_size,drawmin[i].y+matchLocs[i].y+sweep_size), new Scalar(0, 242, 255), 3);
        }
 
    }
