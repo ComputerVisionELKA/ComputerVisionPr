@@ -44,8 +44,9 @@ public class PositionTracker {
     /// Auxilliary
     private FeatureDetector orbFeatureDetector; // Orb 5
     private Random random;
-    private static final String    TAG = "OCVSample::Activity";
-    private int match_method = Imgproc.TM_CCOEFF_NORMED;
+    private static final String TAG = "OCVSample::Activity";
+   // private int match_method = Imgproc.TM_CCOEFF_NORMED;
+   private int match_method;
 
 
     public PositionTracker(int corner_size, int num_track, int sweep_size, Mat firstImg){
@@ -87,12 +88,12 @@ public class PositionTracker {
 
             pts_xy[i] = foiToStore.pt;
             // Gets the mat of the point (Squares only and no bounds check)
-            pts_img[i] = firstImg.submat(new Rect(new Point(foiToStore.pt.x - corner_size / 2, foiToStore.pt.y - corner_size / 2),
-                    new Point(foiToStore.pt.x + corner_size / 2, foiToStore.pt.y + corner_size / 2)));
+            pts_img[i] = firstImg.submat(new Rect(new Point(foiToStore.pt.x - (corner_size / 2), foiToStore.pt.y - (corner_size / 2)),
+                    new Point(foiToStore.pt.x + (corner_size / 2), foiToStore.pt.y + (corner_size / 2))));
 
             // DBG draws intial point's rectangles
-           drawmin[i] = new Point(foiToStore.pt.x - corner_size / 2, foiToStore.pt.y - corner_size / 2);
-            drawmax[i] = new Point(foiToStore.pt.x + corner_size / 2, foiToStore.pt.y + corner_size / 2);
+           drawmin[i] = new Point(foiToStore.pt.x - (corner_size / 2), foiToStore.pt.y - (corner_size / 2));
+            drawmax[i] = new Point(foiToStore.pt.x + (corner_size / 2), foiToStore.pt.y + (corner_size / 2));
 
         }
         // DBG draws intial point's rectangles
@@ -119,11 +120,14 @@ public class PositionTracker {
     }
 
     // Takes the new frame and does all logic
-   public void update(Mat frame){
+   public void update(Mat frame,Mat coloredFrame){
        this.currentFrame = frame;
        Point[] drawmin = new Point[num_track];
        Point[] drawmax = new Point[num_track];
        Point[] matchLocs = new Point[num_track];
+       Double[] matchScores = new Double[num_track];
+       Boolean[] keepPoint = new Boolean[num_track]; // Synonomous with checking if point >.75
+       Double[] distances = new Double[num_track];
 
 
        // Main loop
@@ -143,29 +147,59 @@ public class PositionTracker {
            int result_rows = searchRgn.rows() - foi_img.rows() + 1;
            Mat result = new Mat(result_rows,result_cols, CvType.CV_32FC1);
 
+           match_method = Imgproc.TM_CCOEFF_NORMED;
+           //match_method = Imgproc.TM_SQDIFF_NORMED;
            Imgproc.matchTemplate(searchRgn, foi_img, result, match_method);
-          // Core.normalize(result,result,0,1,Core.NORM_MINMAX,-1,new Mat());
+          // Core.normalize(result, result, 0, 1, Core.NORM_MINMAX, -1, new Mat());
            Core.MinMaxLocResult mmr = Core.minMaxLoc(result);
 
-           Point matchLocTopLeft;
+
 
            if (match_method == Imgproc.TM_SQDIFF
                    || match_method == Imgproc.TM_SQDIFF_NORMED) {
-               matchLocTopLeft = mmr.minLoc;
+               matchLocs[i] = mmr.minLoc;
+               matchScores[i] = mmr.minVal;
                Log.i(TAG, "minVal " + mmr.minVal);
            } else {
-               matchLocTopLeft = mmr.maxLoc;
+
                matchLocs[i] = mmr.maxLoc;
+               matchScores[i] = mmr.maxVal;
                Log.i(TAG, "maxVal [" +i+"] "+ mmr.maxVal);
-               Log.i(TAG, "minVal [" +i+"] "+ mmr.minVal);
+               //Log.i(TAG, "minVal [" +i+"] "+ mmr.minVal);
            }
 
        }
+       for (int i = 0;i<num_track;i++){
+           Point matchedPoint = new Point(drawmin[i].x+(matchLocs[i].x+(corner_size/2.0)),drawmin[i].y+(matchLocs[i].y+(corner_size/2.0)));
+           distances[i] = Math.sqrt((pts_xy[i].x-matchedPoint.x)*(pts_xy[i].x-matchedPoint.x) + (pts_xy[i].y-matchedPoint.y)*(pts_xy[i].y-matchedPoint.y));
+           if (matchScores[i] > .97 && distances[i] < 15){
+               Log.i(TAG, "distance "+ distances[i]);
+
+               pts_xy[i] = matchedPoint;
+
+               pts_img[i] = frame.submat(new Rect(new Point(drawmin[i].x+matchLocs[i].x, drawmin[i].y+matchLocs[i].y),
+                       new Point(drawmin[i].x+matchLocs[i].x+corner_size, drawmin[i].y+matchLocs[i].y+corner_size)));
+
+           }
+           else{
+               Log.i(TAG, "distancefail "+ distances[i]);
+           }
+       }
+
         //DBG
        for(int i = 0;i<num_track;i++) {
-           rectangle(frame, drawmin[i], drawmax[i], new Scalar(237, 167, 55), 3);
-           rectangle(frame, new Point(drawmin[i].x+matchLocs[i].x,drawmin[i].y+matchLocs[i].y),
-                   new Point(drawmin[i].x+matchLocs[i].x+sweep_size,drawmin[i].y+matchLocs[i].y+sweep_size), new Scalar(0, 242, 255), 3);
+           rectangle(coloredFrame, drawmin[i], drawmax[i], new Scalar(237, 167, 55), 3);
+           Scalar colorFound;
+           if(matchScores[i] > .97 && distances[i] < 15){
+               colorFound = new Scalar(0, 255, 0); //Green
+
+
+           }
+           else{
+               colorFound = new Scalar(255,0,0); //Red
+           }
+           rectangle(coloredFrame, new Point(drawmin[i].x+matchLocs[i].x,drawmin[i].y+matchLocs[i].y),
+                   new Point(drawmin[i].x+matchLocs[i].x+corner_size,drawmin[i].y+matchLocs[i].y+corner_size), colorFound, 3);
        }
 
    }

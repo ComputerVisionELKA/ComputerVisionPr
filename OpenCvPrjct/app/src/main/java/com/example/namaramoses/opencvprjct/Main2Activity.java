@@ -205,17 +205,17 @@ public class Main2Activity extends Activity implements CvCameraViewListener2 {
 
     @Override
     public Mat onCameraFrame(CameraBridgeViewBase.CvCameraViewFrame inputFrame) {
-        final int viewMode = mViewMode;
+        final int viewMode = VIEW_MODE_ORB;
         switch (viewMode) {
             case VIEW_MODE_ORB:
                 mRgba = inputFrame.rgba();
                 mGray = inputFrame.gray();
                 if (frameCount==0){
-                    positionTracker = new PositionTracker(16,5,64,mRgba);
+                    positionTracker = new PositionTracker(32,10,64,mGray);
                     frameCount++;
                 }
                 else{
-                    positionTracker.update(mRgba);
+                    positionTracker.update(mGray,mRgba);
                     frameCount++;
                 }
 //                if(firstFrame==0) {
