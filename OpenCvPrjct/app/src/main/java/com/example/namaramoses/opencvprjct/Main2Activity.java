@@ -1,34 +1,24 @@
 package com.example.namaramoses.opencvprjct;
 
 import android.app.Activity;
+import android.content.Context;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 
-import org.opencv.android.BaseLoaderCallback;
+
 import org.opencv.android.CameraBridgeViewBase;
 import org.opencv.android.CameraBridgeViewBase.CvCameraViewListener2;
-import org.opencv.android.LoaderCallbackInterface;
-import org.opencv.core.CvType;
-import org.opencv.core.KeyPoint;
+
 import org.opencv.core.Mat;
-import org.opencv.core.MatOfByte;
-import org.opencv.core.MatOfDMatch;
-import org.opencv.core.MatOfKeyPoint;
-import org.opencv.core.Scalar;
+
 import org.opencv.core.Size;
-import org.opencv.features2d.DescriptorExtractor;
-import org.opencv.features2d.DescriptorMatcher;
-import org.opencv.features2d.FeatureDetector;
-import org.opencv.features2d.Features2d;
+
 import org.opencv.imgproc.Imgproc;
 
-import java.util.List;
-
-import static org.opencv.imgproc.Imgproc.circle;
 import static org.opencv.imgproc.Imgproc.cvtColor;
-import static org.opencv.imgproc.Imgproc.resize;
+
 
 
 public class Main2Activity extends Activity implements CvCameraViewListener2 {
@@ -61,59 +51,58 @@ public class Main2Activity extends Activity implements CvCameraViewListener2 {
 
 
     private int frameCount;
-    private FeatureDetector javaFeatureDetector;
-    private MatOfKeyPoint keypoints1;
-    private MatOfKeyPoint keypoints2;
-    private MatOfKeyPoint keyPointsUse;
-    private Mat descriptors1;
-    private Mat descriptors2;
-    private FeatureDetector orbFeatureDetector;
-    private DescriptorExtractor descriptor;
-    private DescriptorMatcher matcher;
-    Mat output;
-    Mat output2;
-    private MatOfDMatch matches;
-    private MatOfDMatch matchesUse;
-    TemplateMatcher templateMatcher;
+
     PositionTracker positionTracker;
-    double startTime, endTime;
+    Context context;
 
 
-    boolean readyForDisplay;
 
-    private BaseLoaderCallback  mLoaderCallback = new BaseLoaderCallback(this) {
-        @Override
-        public void onManagerConnected(int status) {
-            switch (status) {
-                case LoaderCallbackInterface.SUCCESS:
-                {
-                    Log.i(TAG, "OpenCV loaded successfully");
 
-                    // Load native library after(!) OpenCV initialization
-                    System.loadLibrary("features");
-
-                    mOpenCvCameraView.enableView();
-                } break;
-                default:
-                {
-                    super.onManagerConnected(status);
-                } break;
-            }
-        }
-    };
+    //Doesn't seem neccessary
+//    private BaseLoaderCallback  mLoaderCallback = new BaseLoaderCallback(this) {
+//        @Override
+//        public void onManagerConnected(int status) {
+//            switch (status) {
+//                case LoaderCallbackInterface.SUCCESS:
+//                {
+//                    Log.i(TAG, "OpenCV loaded successfully");
+//
+//                    // Load native library after(!) OpenCV initialization
+//                    //System.loadLibrary("features");
+//
+//                    mOpenCvCameraView.enableView();
+//                } break;
+//                default:
+//                {
+//                    super.onManagerConnected(status);
+//                } break;
+//            }
+//        }
+//    };
 
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        Log.i(TAG, "CREATING");
         super.onCreate(savedInstanceState);
+
         setContentView(R.layout.activity_main2);
         mOpenCvCameraView = (CameraBridgeViewBase) findViewById(R.id.surface_view);
         mOpenCvCameraView.setCvCameraViewListener(this);
+        //mOpenCvCameraView.enableView();
+
+        System.loadLibrary("opencv_java3");
+
+        //System.loadLibrary("features"); Wasn't neccessary
+//      Log.d(TAG, "OpenCV library found inside package. Using it!");
+        //mLoaderCallback.onManagerConnected(LoaderCallbackInterface.SUCCESS);
 
     }
 
     public void onPause()
     {
+        Log.i(TAG, "PAUSING");
+
         super.onPause();
         if (mOpenCvCameraView != null)
             mOpenCvCameraView.disableView();
@@ -122,14 +111,21 @@ public class Main2Activity extends Activity implements CvCameraViewListener2 {
     @Override
     public void onResume()
     {
+        Log.i(TAG, "RESUMING");
         super.onResume();
 
-        System.loadLibrary("opencv_java3");
-        Log.d(TAG, "OpenCV library found inside package. Using it!");
-        mLoaderCallback.onManagerConnected(LoaderCallbackInterface.SUCCESS);
+//      System.loadLibrary("opencv_java3");
+//      Log.d(TAG, "OpenCV library found inside package. Using it!");
+
+        if (mOpenCvCameraView != null) {
+            mOpenCvCameraView.enableView();
+        }
+        //mLoaderCallback.onManagerConnected(LoaderCallbackInterface.SUCCESS);
     }
 
     public void onDestroy() {
+        Log.i(TAG, "DESTROYING");
+
         super.onDestroy();
         if (mOpenCvCameraView != null)
             mOpenCvCameraView.disableView();
@@ -156,7 +152,6 @@ public class Main2Activity extends Activity implements CvCameraViewListener2 {
         frameCount=0; // 3
         //templateMatcher = new TemplateMatcher(15,5);
 
-        readyForDisplay = false;
 
         if (item == mItemPreviewRGBA) {
             mViewMode = VIEW_MODE_RGBA;
@@ -178,29 +173,14 @@ public class Main2Activity extends Activity implements CvCameraViewListener2 {
     }
 
     public void onCameraViewStarted(int width, int height) {
-        mRgba = new Mat(height, width, CvType.CV_8UC4);
-        mIntermediateMat = new Mat(height, width, CvType.CV_8UC4);
-        mGray = new Mat(height, width, CvType.CV_8UC1);
-        javaFeatureDetector = FeatureDetector.create(1);
-
-        keypoints1 = new MatOfKeyPoint();
-        keypoints2 = new MatOfKeyPoint();
-        descriptors1 = new Mat();
-        descriptors2 = new Mat();
-        orbFeatureDetector = FeatureDetector.create(FeatureDetector.ORB);
-        //orbFeatureDetector = FeatureDetector.create(1);
-
-        screenSize = new Size(width,height);
-
-        descriptor = DescriptorExtractor.create(DescriptorExtractor.ORB);
-
-        matcher = DescriptorMatcher.create(DescriptorMatcher.BRUTEFORCE_HAMMING);
+        Log.i(TAG, "func: onCameraViewStarted");
     }
 
     public void onCameraViewStopped() {
-        mRgba.release();
-        mGray.release();
-        mIntermediateMat.release();
+        Log.i(TAG, "func: onCameraViewStopped");
+        //mRgba.release();
+        //mGray.release();
+        //mIntermediateMat.release();
     }
 
     @Override
@@ -208,74 +188,24 @@ public class Main2Activity extends Activity implements CvCameraViewListener2 {
         final int viewMode = VIEW_MODE_ORB;
         switch (viewMode) {
             case VIEW_MODE_ORB:
-                mRgba = inputFrame.rgba();
                 mGray = inputFrame.gray();
-                if (frameCount==0){
-                    positionTracker = new PositionTracker(32,10,64,mGray);
-                    frameCount++;
-                }
-                else{
+                if (frameCount>50){
+                    mRgba = inputFrame.rgba();
                     positionTracker.update(mGray,mRgba);
-                    frameCount++;
                 }
-//                if(firstFrame==0) {
-//                    firstFrame=1;
-//                    mInitial = inputFrame.gray().clone();
-//                    orbFeatureDetector.detect(mInitial, keypoints1);
-//                    descriptor.compute(mInitial, keypoints1, descriptors1);
-//                    mRgba = mInitial;
-//                    output = new Mat();
-//                    output2 = new Mat();
-//                    keypoints2 = new MatOfKeyPoint();
-//                    keyPointsUse = new MatOfKeyPoint();
-//                    matches = new MatOfDMatch();
-//                    matchesUse = new MatOfDMatch();
-//                    startTime = System.nanoTime();
-//                }
-//                else{
-//                    MatOfByte mask = new MatOfByte();
-//
-//                    Scalar RED = new Scalar(255,0,0);
-//                    Scalar GREEN = new Scalar(0,255,0);
-                // if(frameCount==3) {
-                // orbFeatureDetector.detect(mGray, keypoints2);
-                // descriptor.compute(mGray, keypoints2, descriptors2);
-                //matcher.match(descriptors1, descriptors2, matches);
-                //   frameCount=0;
-                //   }
-//                        new Thread(new Runnable() {
-//                            public void run() {
-//                                Mat mGray2 = mGray.clone();
-//                                orbFeatureDetector.detect(mGray2, keypoints2);
-//                                descriptor.compute(mGray2, keypoints2, descriptors2);
-//                                matcher.match(descriptors1, descriptors2, matches);
-//
-//                                synchronized (matchesUse) {
-//                                    matchesUse = matches;
-//                                    keyPointsUse = keypoints2;
-//                                }
-//
-//                            }
-//                        }).start();
-//                        frameCount=0;
-                // frameCount++;
-                //Flan Matching
-                //  synchronized (matchesUse) {
+                else if (frameCount==50){
+                    context = getApplicationContext();
 
-                //   Features2d.drawMatches(mInitial, keypoints1, mGray, keypoints2, matches, output,
-                //           GREEN, RED, mask, Features2d.NOT_DRAW_SINGLE_POINTS);
-                //  }
-                // resize(output, output2, screenSize);
+                    //mLoaderCallback.onManagerConnected(LoaderCallbackInterface.SUCCESS);
+                    //mOpenCvCameraView.enableView();
 
-//                    endTime = System.nanoTime();
-//                    double total = (endTime - startTime)/1000000000.0;
-                //                  Log.i(TAG, "Time: " + total);
-//                    startTime = endTime;
+                    positionTracker = new PositionTracker(50,3,200,mGray,context);
+                    //positionTracker = new PositionTracker(20,15,70,mGray,context);
 
-//                    Log.i(TAG, "mInitaialDims: " + mInitial.width() + "," + mInitial.height());
-//                    Log.i(TAG, "mGrayDims: " + mGray.width() +","+ mGray.height());
-//                    Log.i(TAG,"outputDims: " + output.width() +","+ output.height());
-                //mRgba = output2;
+
+                }
+
+                frameCount++;
                 break;
             case VIEW_MODE_GRAY:
                 // input frame has gray scale format
@@ -296,18 +226,18 @@ public class Main2Activity extends Activity implements CvCameraViewListener2 {
                 // input frame has RGBA format
                 mRgba = inputFrame.rgba();
                 mGray = inputFrame.gray();
-                FindFeatures(mGray.getNativeObjAddr(), mRgba.getNativeObjAddr());
+                //FindFeatures(mGray.getNativeObjAddr(), mRgba.getNativeObjAddr());
                 break;
             case VIEW_MODE_FEATURESJAVA:
                 // input frame has RGBA format
-                mRgba = inputFrame.rgba();
-                mGray = inputFrame.gray();
-
-                javaFeatureDetector.detect(mGray, keypoints1);
-                List<KeyPoint> listOfPoints = keypoints1.toList();
-                for (KeyPoint kp : listOfPoints) {
-                    circle(mRgba, kp.pt, 10, new Scalar(255, 0, 0, 255), 1);
-                }
+//                mRgba = inputFrame.rgba();
+//                mGray = inputFrame.gray();
+//
+//                javaFeatureDetector.detect(mGray, keypoints1);
+//                List<KeyPoint> listOfPoints = keypoints1.toList();
+//                for (KeyPoint kp : listOfPoints) {
+//                    circle(mRgba, kp.pt, 10, new Scalar(255, 0, 0, 255), 1);
+//                }
 
                 break;
 
@@ -316,6 +246,6 @@ public class Main2Activity extends Activity implements CvCameraViewListener2 {
         return mRgba;
     }
 
-    public native void FindFeatures(long matAddrGr, long matAddrRgba);
+    //public native void FindFeatures(long matAddrGr, long matAddrRgba);
 
 }
